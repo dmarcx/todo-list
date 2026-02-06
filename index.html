@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TODO List</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: url('background.png') no-repeat center center fixed;
+      background-size: cover;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 32px 24px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .input-row input[type="text"] {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .input-row input[type="date"] {
+      padding: 12px 12px;
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.2s;
+      color: #6b7280;
+    }
+
+    .input-row select {
+      padding: 12px 12px;
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.2s;
+      color: #6b7280;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .input-row select:focus {
+      border-color: #4f46e5;
+    }
+
+    .input-row textarea {
+      width: 100%;
+      padding: 8px 16px;
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+      resize: vertical;
+      min-height: 38px;
+      color: #6b7280;
+    }
+
+    .input-row input:focus,
+    .input-row textarea:focus {
+      border-color: #4f46e5;
+    }
+
+    .input-row button {
+      padding: 12px 20px;
+      background: #4f46e5;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    .input-row button:hover {
+      background: #4338ca;
+    }
+
+    .filters {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      background: #e5e7eb;
+      border-radius: 8px;
+      padding: 4px;
+    }
+
+    .filters button {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      color: #6b7280;
+      transition: all 0.2s;
+    }
+
+    .filters button.active {
+      background: #fff;
+      color: #1a1a2e;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .sort-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 12px;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    .sort-bar span {
+      font-weight: 500;
+      margin-right: 2px;
+    }
+
+    .sort-bar button {
+      padding: 5px 10px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 0.8rem;
+      cursor: pointer;
+      color: #6b7280;
+      transition: all 0.2s;
+    }
+
+    .sort-bar button:hover {
+      border-color: #4f46e5;
+      color: #4f46e5;
+    }
+
+    .sort-bar button.active {
+      background: #4f46e5;
+      color: #fff;
+      border-color: #4f46e5;
+    }
+
+    .todo-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      transition: opacity 0.2s;
+      border-left: 4px solid transparent;
+    }
+
+    .todo-item.priority-high {
+      border-left-color: #ef4444;
+    }
+
+    .todo-item.priority-medium {
+      border-left-color: #f59e0b;
+    }
+
+    .todo-item.priority-low {
+      border-left-color: #22c55e;
+    }
+
+    .todo-item.completed {
+      opacity: 0.6;
+    }
+
+    .todo-item input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: #4f46e5;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .todo-item .todo-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .todo-item .text {
+      font-size: 1rem;
+      word-break: break-word;
+    }
+
+    .todo-item.completed .text {
+      text-decoration: line-through;
+      color: #9ca3af;
+    }
+
+    .todo-item .tags {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 3px;
+    }
+
+    .tag {
+      font-size: 0.675rem;
+      font-weight: 500;
+      padding: 1px 7px;
+      border-radius: 10px;
+      background: #e0e7ff;
+      color: #3730a3;
+    }
+
+    .todo-item .description {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 2px;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .todo-item .meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 3px;
+      flex-wrap: wrap;
+    }
+
+    .todo-item .due-date {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+
+    .todo-item .due-date.overdue {
+      color: #ef4444;
+      font-weight: 600;
+    }
+
+    .todo-item .priority-badge {
+      font-size: 0.675rem;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .priority-badge.high {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+
+    .priority-badge.medium {
+      background: #fffbeb;
+      color: #d97706;
+    }
+
+    .priority-badge.low {
+      background: #f0fdf4;
+      color: #16a34a;
+    }
+
+    .todo-item .actions {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .todo-item .edit-btn,
+    .todo-item .delete-btn {
+      background: none;
+      border: none;
+      color: #d1d5db;
+      font-size: 1.25rem;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      border-radius: 4px;
+      transition: color 0.2s;
+    }
+
+    .todo-item .edit-btn:hover {
+      color: #4f46e5;
+    }
+
+    .todo-item .delete-btn:hover {
+      color: #ef4444;
+    }
+
+    .edit-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .edit-form input[type="text"] {
+      padding: 8px 10px;
+      border: 2px solid #4f46e5;
+      border-radius: 6px;
+      font-size: 1rem;
+      outline: none;
+      width: 100%;
+    }
+
+    .edit-form textarea {
+      padding: 6px 10px;
+      border: 2px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-family: inherit;
+      outline: none;
+      width: 100%;
+      resize: vertical;
+      min-height: 36px;
+      color: #6b7280;
+    }
+
+    .edit-form textarea:focus {
+      border-color: #4f46e5;
+    }
+
+    .edit-form .tag-input,
+    .input-row .tag-input {
+      padding: 8px 10px;
+      border: 2px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      outline: none;
+      color: #6b7280;
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .edit-form .tag-input:focus,
+    .input-row .tag-input:focus {
+      border-color: #4f46e5;
+    }
+
+    .edit-form .edit-options {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .edit-form input[type="date"],
+    .edit-form select {
+      padding: 6px 8px;
+      border: 2px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      outline: none;
+      color: #6b7280;
+    }
+
+    .edit-form select {
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .edit-form input[type="date"]:focus,
+    .edit-form select:focus {
+      border-color: #4f46e5;
+    }
+
+    .edit-form .edit-actions {
+      display: flex;
+      gap: 6px;
+      margin-left: auto;
+    }
+
+    .edit-form .save-btn,
+    .edit-form .cancel-btn {
+      padding: 5px 12px;
+      border: none;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .edit-form .save-btn {
+      background: #4f46e5;
+      color: #fff;
+    }
+
+    .edit-form .save-btn:hover {
+      background: #4338ca;
+    }
+
+    .edit-form .cancel-btn {
+      background: #e5e7eb;
+      color: #6b7280;
+    }
+
+    .edit-form .cancel-btn:hover {
+      background: #d1d5db;
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      padding: 0 4px;
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+
+    .clear-btn {
+      background: none;
+      border: none;
+      color: #6b7280;
+      cursor: pointer;
+      font-size: 0.875rem;
+      text-decoration: underline;
+    }
+
+    .clear-btn:hover {
+      color: #ef4444;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #9ca3af;
+      padding: 32px 0;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>TODO List</h1>
+
+    <div class="input-row">
+      <input type="text" id="todoInput" placeholder="What needs to be done?" autofocus>
+      <textarea id="descInput" placeholder="Description (optional)" rows="1"></textarea>
+      <input type="date" id="dueDateInput" title="Due date (optional)">
+      <select id="priorityInput" title="Priority">
+        <option value="none">No priority</option>
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+      <input type="text" class="tag-input" id="tagInput" placeholder="Tags (comma separated)">
+      <button onclick="addTodo()">Add</button>
+    </div>
+
+    <div class="filters">
+      <button class="active" onclick="setFilter('active', this)">Tasks</button>
+      <button onclick="setFilter('completed', this)">Completed</button>
+    </div>
+
+    <div class="sort-bar" id="sortBar">
+      <span>Sort:</span>
+      <button onclick="setSort('name')" id="sortName">Name</button>
+      <button onclick="setSort('date')" id="sortDate">Date</button>
+      <button onclick="setSort('priority')" id="sortPriority">Priority</button>
+    </div>
+
+    <ul class="todo-list" id="todoList"></ul>
+
+    <div class="status-bar" id="statusBar" style="display:none;">
+      <span id="itemCount"></span>
+      <button class="clear-btn" id="clearCompleted" onclick="clearCompleted()">Clear completed</button>
+    </div>
+  </div>
+
+  <script>
+    let todos = JSON.parse(localStorage.getItem('todos')) || [];
+    let currentFilter = 'active';
+    let editingId = null;
+    let currentSort = null; // 'name', 'date', 'priority'
+    let sortAsc = true;
+
+    const todoInput = document.getElementById('todoInput');
+    const descInput = document.getElementById('descInput');
+    const dueDateInput = document.getElementById('dueDateInput');
+    const priorityInput = document.getElementById('priorityInput');
+    const tagInput = document.getElementById('tagInput');
+    const todoList = document.getElementById('todoList');
+    const statusBar = document.getElementById('statusBar');
+    const itemCount = document.getElementById('itemCount');
+    const clearBtn = document.getElementById('clearCompleted');
+
+    todoInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') addTodo();
+    });
+
+    function save() {
+      localStorage.setItem('todos', JSON.stringify(todos));
+    }
+
+    function addTodo() {
+      const text = todoInput.value.trim();
+      if (!text) return;
+      const description = descInput.value.trim() || null;
+      const dueDate = dueDateInput.value || null;
+      const priority = priorityInput.value;
+      const tags = parseTags(tagInput.value);
+      todos.push({ id: Date.now(), text, completed: false, description, dueDate, priority, tags });
+      todoInput.value = '';
+      descInput.value = '';
+      dueDateInput.value = '';
+      priorityInput.value = 'none';
+      tagInput.value = '';
+      save();
+      render();
+    }
+
+    function toggleTodo(id) {
+      const todo = todos.find(t => t.id === id);
+      if (todo) todo.completed = !todo.completed;
+      save();
+      render();
+    }
+
+    function deleteTodo(id) {
+      todos = todos.filter(t => t.id !== id);
+      save();
+      render();
+    }
+
+    function startEdit(id) {
+      editingId = id;
+      render();
+      const input = document.getElementById('editText');
+      if (input) { input.focus(); input.selectionStart = input.value.length; }
+    }
+
+    function cancelEdit() {
+      editingId = null;
+      render();
+    }
+
+    function saveEdit(id) {
+      const text = document.getElementById('editText').value.trim();
+      if (!text) return;
+      const todo = todos.find(t => t.id === id);
+      if (todo) {
+        todo.text = text;
+        todo.description = document.getElementById('editDesc').value.trim() || null;
+        todo.dueDate = document.getElementById('editDueDate').value || null;
+        todo.priority = document.getElementById('editPriority').value;
+        todo.tags = parseTags(document.getElementById('editTags').value);
+      }
+      editingId = null;
+      save();
+      render();
+    }
+
+    function clearCompleted() {
+      todos = todos.filter(t => !t.completed);
+      save();
+      render();
+    }
+
+    function setFilter(filter, btn) {
+      currentFilter = filter;
+      document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render();
+    }
+
+    function setSort(sortBy) {
+      if (currentSort === sortBy) {
+        sortAsc = !sortAsc;
+      } else {
+        currentSort = sortBy;
+        sortAsc = true;
+      }
+      updateSortButtons();
+      render();
+    }
+
+    function updateSortButtons() {
+      document.querySelectorAll('.sort-bar button').forEach(b => b.classList.remove('active'));
+      if (currentSort) {
+        const arrow = sortAsc ? ' \u2191' : ' \u2193';
+        const btn = document.getElementById('sort' + currentSort.charAt(0).toUpperCase() + currentSort.slice(1));
+        btn.classList.add('active');
+        const labels = { name: 'Name', date: 'Date', priority: 'Priority' };
+        btn.textContent = labels[currentSort] + arrow;
+      }
+      // Reset labels on inactive buttons
+      document.querySelectorAll('.sort-bar button:not(.active)').forEach(b => {
+        const labels = { sortName: 'Name', sortDate: 'Date', sortPriority: 'Priority' };
+        b.textContent = labels[b.id];
+      });
+    }
+
+    const priorityOrder = { high: 0, medium: 1, low: 2, none: 3 };
+
+    function sortTodos(list) {
+      if (!currentSort) return list;
+      const sorted = [...list];
+      sorted.sort((a, b) => {
+        let cmp = 0;
+        if (currentSort === 'name') {
+          cmp = a.text.localeCompare(b.text, undefined, { sensitivity: 'base' });
+        } else if (currentSort === 'date') {
+          const da = a.dueDate || '';
+          const db = b.dueDate || '';
+          if (!da && !db) cmp = 0;
+          else if (!da) cmp = 1;
+          else if (!db) cmp = -1;
+          else cmp = da.localeCompare(db);
+        } else if (currentSort === 'priority') {
+          const pa = priorityOrder[a.priority || 'none'];
+          const pb = priorityOrder[b.priority || 'none'];
+          cmp = pa - pb;
+        }
+        return sortAsc ? cmp : -cmp;
+      });
+      return sorted;
+    }
+
+    function render() {
+      const filtered = todos.filter(t => {
+        return currentFilter === 'completed' ? t.completed : !t.completed;
+      });
+
+      if (filtered.length === 0 && todos.length === 0) {
+        todoList.innerHTML = '<li class="empty-state">No tasks yet. Add one above!</li>';
+        statusBar.style.display = 'none';
+        return;
+      }
+
+      if (filtered.length === 0) {
+        const msg = currentFilter === 'completed' ? 'No completed tasks yet.' : 'All tasks completed!';
+        todoList.innerHTML = `<li class="empty-state">${msg}</li>`;
+      } else {
+        const sorted = sortTodos(filtered);
+        const today = new Date().toISOString().split('T')[0];
+        todoList.innerHTML = sorted.map(t => {
+          if (t.id === editingId) {
+            const pVal = t.priority || 'none';
+            return `
+            <li class="todo-item ${t.priority && t.priority !== 'none' ? 'priority-' + t.priority : ''}">
+              <div class="edit-form">
+                <input type="text" id="editText" value="${escapeAttr(t.text)}" onkeydown="if(event.key==='Escape')cancelEdit();">
+                <textarea id="editDesc" placeholder="Description (optional)" rows="2">${escapeHtml(t.description || '')}</textarea>
+                <input type="text" class="tag-input" id="editTags" placeholder="Tags (comma separated)" value="${escapeAttr((t.tags || []).join(', '))}">
+                <div class="edit-options">
+                  <input type="date" id="editDueDate" value="${t.dueDate || ''}">
+                  <select id="editPriority">
+                    <option value="none" ${pVal === 'none' ? 'selected' : ''}>No priority</option>
+                    <option value="low" ${pVal === 'low' ? 'selected' : ''}>Low</option>
+                    <option value="medium" ${pVal === 'medium' ? 'selected' : ''}>Medium</option>
+                    <option value="high" ${pVal === 'high' ? 'selected' : ''}>High</option>
+                  </select>
+                  <div class="edit-actions">
+                    <button class="save-btn" onclick="saveEdit(${t.id})">Save</button>
+                    <button class="cancel-btn" onclick="cancelEdit()">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            </li>`;
+          }
+          const dueDateHtml = t.dueDate
+            ? `<span class="due-date ${!t.completed && t.dueDate < today ? 'overdue' : ''}">Due: ${formatDate(t.dueDate)}</span>`
+            : '';
+          const priorityHtml = t.priority && t.priority !== 'none'
+            ? `<span class="priority-badge ${t.priority}">${t.priority}</span>`
+            : '';
+          const hasMeta = dueDateHtml || priorityHtml;
+          const priorityClass = t.priority && t.priority !== 'none' ? `priority-${t.priority}` : '';
+          return `
+          <li class="todo-item ${t.completed ? 'completed' : ''} ${priorityClass}">
+            <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="toggleTodo(${t.id})">
+            <div class="todo-content">
+              <span class="text">${escapeHtml(t.text)}</span>
+              ${t.description ? `<div class="description">${escapeHtml(t.description)}</div>` : ''}
+              ${hasMeta ? `<div class="meta">${priorityHtml}${dueDateHtml}</div>` : ''}
+              ${t.tags && t.tags.length ? `<div class="tags">${t.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
+            </div>
+            <div class="actions">
+              <button class="edit-btn" onclick="startEdit(${t.id})" title="Edit">&#9998;</button>
+              <button class="delete-btn" onclick="deleteTodo(${t.id})" title="Delete">&times;</button>
+            </div>
+          </li>`;
+        }).join('');
+      }
+
+      const activeCount = todos.filter(t => !t.completed).length;
+      const completedCount = todos.filter(t => t.completed).length;
+      itemCount.textContent = `${activeCount} item${activeCount !== 1 ? 's' : ''} left`;
+      clearBtn.style.display = completedCount > 0 ? 'inline' : 'none';
+      statusBar.style.display = 'flex';
+    }
+
+    function formatDate(dateStr) {
+      const [y, m, d] = dateStr.split('-');
+      return `${m}/${d}/${y}`;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function escapeAttr(str) {
+      return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    }
+
+    function parseTags(str) {
+      return str.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    }
+
+    render();
+  </script>
+</body>
+</html>
