@@ -31,6 +31,87 @@
       padding: 32px 24px;
     }
 
+    .auth-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 8px 12px;
+      background: #f9fafb;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: #6b7280;
+      gap: 8px;
+    }
+
+    .auth-bar .user-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .auth-bar .user-info img {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+    }
+
+    .auth-bar .user-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .auth-bar button {
+      padding: 5px 12px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #4f46e5;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .auth-bar button:hover {
+      background: #4f46e5;
+      color: #fff;
+      border-color: #4f46e5;
+    }
+
+    .sync-status {
+      font-size: 0.7rem;
+      color: #22c55e;
+      white-space: nowrap;
+    }
+
+    .data-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      justify-content: flex-end;
+    }
+
+    .data-bar button {
+      padding: 4px 10px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 0.7rem;
+      font-weight: 500;
+      cursor: pointer;
+      color: #6b7280;
+      transition: all 0.2s;
+    }
+
+    .data-bar button:hover {
+      border-color: #4f46e5;
+      color: #4f46e5;
+    }
+
     h1 {
       font-size: 2rem;
       font-weight: 700;
@@ -479,6 +560,20 @@
   <div class="container">
     <h1>TODO List</h1>
 
+    <div class="auth-bar" id="authBar">
+      <div class="user-info">
+        <span id="authStatus">Not signed in</span>
+      </div>
+      <button id="authBtn" onclick="handleAuth()">Sign in with Google</button>
+    </div>
+
+    <div class="data-bar">
+      <span class="sync-status" id="syncStatus"></span>
+      <button onclick="exportTodos()">Export</button>
+      <button onclick="document.getElementById('importFile').click()">Import</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importTodos(event)">
+    </div>
+
     <div class="input-row">
       <input type="text" id="todoInput" placeholder="What needs to be done?" autofocus>
       <textarea id="descInput" placeholder="Description (optional)" rows="1"></textarea>
@@ -513,13 +608,38 @@
     </div>
   </div>
 
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <script>
+    // --- Firebase Setup ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyBT9Fj-pdX-7kQBJ7M_U5EyJw23aFfc6xQ",
+      authDomain: "todo-list-app-2bcda.firebaseapp.com",
+      projectId: "todo-list-app-2bcda",
+      storageBucket: "todo-list-app-2bcda.firebasestorage.app",
+      messagingSenderId: "74851776009",
+      appId: "1:74851776009:web:9521cceec29c10f93caad8",
+      measurementId: "G-LBPWJEQZEY"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    let currentUser = null;
+    let unsubscribeSync = null;
+    let ignoreNextSnapshot = false;
+
+    // --- App State ---
     let todos = JSON.parse(localStorage.getItem('todos')) || [];
     let currentFilter = 'active';
     let editingId = null;
-    let currentSort = null; // 'name', 'date', 'priority'
+    let currentSort = null;
     let sortAsc = true;
 
+    // --- DOM Elements ---
     const todoInput = document.getElementById('todoInput');
     const descInput = document.getElementById('descInput');
     const dueDateInput = document.getElementById('dueDateInput');
@@ -529,15 +649,110 @@
     const statusBar = document.getElementById('statusBar');
     const itemCount = document.getElementById('itemCount');
     const clearBtn = document.getElementById('clearCompleted');
+    const authBtn = document.getElementById('authBtn');
+    const authStatus = document.getElementById('authStatus');
+    const syncStatus = document.getElementById('syncStatus');
 
     todoInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') addTodo();
     });
 
-    function save() {
-      localStorage.setItem('todos', JSON.stringify(todos));
+    // --- Auth ---
+    function handleAuth() {
+      if (currentUser) {
+        auth.signOut();
+      } else {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        auth.signInWithPopup(provider).catch(err => {
+          alert('Sign-in failed: ' + err.message);
+        });
+      }
     }
 
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      if (user) {
+        authStatus.innerHTML = `<img src="${user.photoURL || ''}" alt=""> <span class="user-name">${user.displayName || user.email}</span>`;
+        authBtn.textContent = 'Sign out';
+        startSync();
+      } else {
+        authStatus.textContent = 'Not signed in';
+        authBtn.textContent = 'Sign in with Google';
+        syncStatus.textContent = '';
+        if (unsubscribeSync) { unsubscribeSync(); unsubscribeSync = null; }
+      }
+    });
+
+    // --- Firestore Sync ---
+    function getUserDoc() {
+      return db.collection('users').doc(currentUser.uid);
+    }
+
+    function startSync() {
+      // Upload local todos to cloud on first sign-in
+      pushToCloud();
+
+      // Listen for real-time changes from other devices
+      unsubscribeSync = getUserDoc().onSnapshot(doc => {
+        if (ignoreNextSnapshot) { ignoreNextSnapshot = false; return; }
+        if (doc.exists) {
+          const cloudTodos = doc.data().todos || [];
+          todos = cloudTodos;
+          localStorage.setItem('todos', JSON.stringify(todos));
+          syncStatus.textContent = 'Synced';
+          render();
+        }
+      }, err => {
+        syncStatus.textContent = 'Sync error';
+      });
+    }
+
+    function pushToCloud() {
+      if (!currentUser) return;
+      ignoreNextSnapshot = true;
+      getUserDoc().set({ todos }, { merge: true })
+        .then(() => { syncStatus.textContent = 'Synced'; })
+        .catch(() => { syncStatus.textContent = 'Sync error'; });
+    }
+
+    // --- Save ---
+    function save() {
+      localStorage.setItem('todos', JSON.stringify(todos));
+      if (currentUser) pushToCloud();
+    }
+
+    // --- Export / Import ---
+    function exportTodos() {
+      const data = JSON.stringify(todos, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'todo-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importTodos(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (!Array.isArray(imported)) throw new Error('Invalid format');
+          todos = imported;
+          save();
+          render();
+        } catch (err) {
+          alert('Invalid file: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    // --- CRUD ---
     function addTodo() {
       const text = todoInput.value.trim();
       if (!text) return;
@@ -602,6 +817,7 @@
       render();
     }
 
+    // --- Filters & Sort ---
     function setFilter(filter, btn) {
       currentFilter = filter;
       document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
@@ -629,7 +845,6 @@
         const labels = { name: 'Name', date: 'Date', priority: 'Priority' };
         btn.textContent = labels[currentSort] + arrow;
       }
-      // Reset labels on inactive buttons
       document.querySelectorAll('.sort-bar button:not(.active)').forEach(b => {
         const labels = { sortName: 'Name', sortDate: 'Date', sortPriority: 'Priority' };
         b.textContent = labels[b.id];
@@ -662,6 +877,7 @@
       return sorted;
     }
 
+    // --- Render ---
     function render() {
       const filtered = todos.filter(t => {
         return currentFilter === 'completed' ? t.completed : !t.completed;
@@ -736,6 +952,7 @@
       statusBar.style.display = 'flex';
     }
 
+    // --- Helpers ---
     function formatDate(dateStr) {
       const [y, m, d] = dateStr.split('-');
       return `${m}/${d}/${y}`;
