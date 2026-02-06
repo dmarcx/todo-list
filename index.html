@@ -663,11 +663,24 @@
         auth.signOut();
       } else {
         const provider = new firebase.auth.GoogleAuthProvider();
-        auth.signInWithPopup(provider).catch(err => {
-          alert('Sign-in failed: ' + err.message);
-        });
+        // Use redirect on mobile (popups are often blocked), popup on desktop
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+          auth.signInWithRedirect(provider);
+        } else {
+          auth.signInWithPopup(provider).catch(err => {
+            alert('Sign-in failed: ' + err.message);
+          });
+        }
       }
     }
+
+    // Handle redirect result on page load (for mobile sign-in)
+    auth.getRedirectResult().catch(err => {
+      if (err.code !== 'auth/no-auth-event') {
+        alert('Sign-in failed: ' + err.message);
+      }
+    });
 
     auth.onAuthStateChanged(user => {
       currentUser = user;
