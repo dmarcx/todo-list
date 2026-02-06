@@ -112,11 +112,22 @@
       color: #4f46e5;
     }
 
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .title-row img {
+      height: 42px;
+      width: auto;
+    }
+
     h1 {
       font-size: 2rem;
       font-weight: 700;
-      margin-bottom: 24px;
-      text-align: center;
     }
 
     .input-row {
@@ -134,6 +145,24 @@
       font-size: 1rem;
       outline: none;
       transition: border-color 0.2s;
+    }
+
+    .date-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .date-wrapper label {
+      position: absolute;
+      left: 12px;
+      font-size: 0.8rem;
+      color: #9ca3af;
+      pointer-events: none;
+    }
+
+    .date-wrapper.has-value label {
+      display: none;
     }
 
     .input-row input[type="date"] {
@@ -558,7 +587,10 @@
 </head>
 <body>
   <div class="container">
-    <h1>TODO List</h1>
+    <div class="title-row">
+      <img src="logo.png" alt="MarcAI Logo">
+      <h1>TODO List</h1>
+    </div>
 
     <div class="auth-bar" id="authBar">
       <div class="user-info">
@@ -577,7 +609,10 @@
     <div class="input-row">
       <input type="text" id="todoInput" placeholder="What needs to be done?" autofocus>
       <textarea id="descInput" placeholder="Description (optional)" rows="1"></textarea>
-      <input type="date" id="dueDateInput" title="Due date (optional)">
+      <div class="date-wrapper" id="dateWrapper">
+        <label for="dueDateInput">Due date</label>
+        <input type="date" id="dueDateInput" title="Due date (optional)" onchange="updateDateLabel()">
+      </div>
       <select id="priorityInput" title="Priority">
         <option value="none">No priority</option>
         <option value="low">Low</option>
@@ -629,8 +664,6 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
     let currentUser = null;
-    let unsubscribeSync = null;
-    let ignoreNextSnapshot = false;
 
     // --- App State ---
     let todos = JSON.parse(localStorage.getItem('todos')) || [];
@@ -690,46 +723,61 @@
       if (user) {
         authStatus.innerHTML = `<img src="${user.photoURL || ''}" alt=""> <span class="user-name">${user.displayName || user.email}</span>`;
         authBtn.textContent = 'Sign out';
-        startSync();
+        loadFromCloud();
       } else {
         authStatus.textContent = 'Not signed in';
         authBtn.textContent = 'Sign in with Google';
         syncStatus.textContent = '';
-        if (unsubscribeSync) { unsubscribeSync(); unsubscribeSync = null; }
       }
     });
 
-    // --- Firestore Sync ---
+    // --- Firestore Sync (simple: load on open, save on change) ---
     function getUserDoc() {
       return db.collection('users').doc(currentUser.uid);
     }
 
-    function startSync() {
-      // Upload local todos to cloud on first sign-in
-      pushToCloud();
-
-      // Listen for real-time changes from other devices
-      unsubscribeSync = getUserDoc().onSnapshot(doc => {
-        if (ignoreNextSnapshot) { ignoreNextSnapshot = false; return; }
+    function loadFromCloud() {
+      if (!currentUser) return;
+      syncStatus.textContent = 'Loading...';
+      getUserDoc().get({ source: 'server' }).then(doc => {
         if (doc.exists) {
-          const cloudTodos = doc.data().todos || [];
-          todos = cloudTodos;
-          localStorage.setItem('todos', JSON.stringify(todos));
-          syncStatus.textContent = 'Synced';
-          render();
+          todos = doc.data().todos || [];
+        } else {
+          // First time: push local todos to cloud
+          pushToCloud();
         }
-      }, err => {
-        syncStatus.textContent = 'Sync error';
+        localStorage.setItem('todos', JSON.stringify(todos));
+        syncStatus.textContent = 'Synced';
+        render();
+      }).catch(err => {
+        syncStatus.textContent = 'Error: ' + err.code;
       });
     }
 
     function pushToCloud() {
       if (!currentUser) return;
-      ignoreNextSnapshot = true;
-      getUserDoc().set({ todos }, { merge: true })
-        .then(() => { syncStatus.textContent = 'Synced'; })
-        .catch(() => { syncStatus.textContent = 'Sync error'; });
+      syncStatus.textContent = 'Saving...';
+      const copy = JSON.parse(JSON.stringify(todos));
+      getUserDoc().set({ todos: copy }).then(() => {
+        syncStatus.textContent = 'Saved';
+      }).catch(err => {
+        syncStatus.textContent = 'Save error: ' + err.code;
+      });
     }
+
+    // Reload from cloud when page becomes visible (phone wakes up, tab refocused)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && currentUser) {
+        loadFromCloud();
+      }
+    });
+
+    // Also reload periodically when focused (every 30 seconds)
+    setInterval(() => {
+      if (!document.hidden && currentUser) {
+        loadFromCloud();
+      }
+    }, 30000);
 
     // --- Save ---
     function save() {
@@ -780,6 +828,7 @@
       todoInput.value = '';
       descInput.value = '';
       dueDateInput.value = '';
+      updateDateLabel();
       priorityInput.value = 'none';
       tagInput.value = '';
       save();
@@ -982,6 +1031,15 @@
 
     function escapeAttr(str) {
       return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    }
+
+    function updateDateLabel() {
+      const wrapper = document.getElementById('dateWrapper');
+      if (dueDateInput.value) {
+        wrapper.classList.add('has-value');
+      } else {
+        wrapper.classList.remove('has-value');
+      }
     }
 
     function parseTags(str) {
